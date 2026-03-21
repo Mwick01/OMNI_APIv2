@@ -12,7 +12,7 @@ def run_whatsapp_sender():
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("🤖 RUH Notice Bot (whatsapp-web.js)")
+    print("🤖 RUH Notice Bot (Baileys)")
     print("=" * 50)
     scrape_and_download()
     run_whatsapp_sender()

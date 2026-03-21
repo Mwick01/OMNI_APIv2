@@ -1,67 +1,64 @@
 // run_once_auth.js
-// Triggered via GitHub Actions "Auth" workflow.
-// Shows QR in logs → scan with WhatsApp → saves Linux session.
+// Run via GitHub Actions "Auth" workflow once to scan QR and save session.
+// Baileys saves auth as small JSON files — no Chromium needed!
 
-const { Client, LocalAuth } = require("whatsapp-web.js");
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys");
 const qrcode = require("qrcode-terminal");
+const { Boom } = require("@hapi/boom");
 
-const client = new Client({
-  authStrategy: new LocalAuth({ dataPath: ".wwebjs_auth" }),
-  puppeteer: {
-    headless: true,
-    executablePath: "/usr/bin/chromium-browser",
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--disable-extensions",
-      "--single-process",
-    ],
-  },
-});
+async function auth() {
+  const { state, saveCreds } = await useMultiFileAuthState("auth_info");
 
-client.on("qr", (qr) => {
-  console.log("\n📱 Scan this QR code with WhatsApp:\n");
-  qrcode.generate(qr, { small: true });
-  console.log("\n⏳ You have 60 seconds to scan...\n");
-});
+  const sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: false,
+    logger: require("pino")({ level: "silent" }),
+  });
 
-client.on("ready", async () => {
-  console.log("\n✅ Authenticated! Waiting for sync...");
-  
-  // Wait 30 seconds for WhatsApp to fully sync chat history
-  await new Promise((r) => setTimeout(r, 30000));
-  console.log("✅ Sync wait done");
+  sock.ev.on("creds.update", saveCreds);
 
-  // Trigger a fake fetch to warm up the session
-  try {
-    const chats = await client.getChats();
-    console.log(`✅ Fetched ${chats.length} chats — session is warm`);
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect, qr } = update;
 
-    const channels = chats.filter(
-      (c) => c.isChannel || c.id._serialized.includes("newsletter")
-    );
-    const groups = chats.filter((c) => c.isGroup);
+    if (qr) {
+      console.log("\n📱 Scan this QR code with WhatsApp:\n");
+      qrcode.generate(qr, { small: true });
+      console.log("\n⏳ You have 60 seconds to scan...\n");
+    }
 
-    console.log("\n📢 Your Channels:");
-    if (channels.length === 0) console.log("  (none found)");
-    channels.forEach((c) => console.log(`  - ${c.name}: ${c.id._serialized}`));
+    if (connection === "open") {
+      console.log("\n✅ Authenticated! Session saved to auth_info/");
+      console.log("⏳ Waiting 10s for session to stabilize...");
+      await new Promise((r) => setTimeout(r, 10000));
 
-    console.log("\n👥 Your Groups:");
-    if (groups.length === 0) console.log("  (none found)");
-    groups.forEach((g) => console.log(`  - ${g.name}: ${g.id._serialized}`));
+      // Print channel/group IDs
+      try {
+        const groups = await sock.groupFetchAllParticipating();
+        console.log("\n👥 Your Groups:");
+        Object.values(groups).forEach((g) =>
+          console.log(`  - ${g.subject}: ${g.id}`)
+        );
+      } catch (e) {
+        console.log("⚠️ Could not fetch groups:", e.message);
+      }
 
-  } catch (e) {
-    console.log("⚠️ Fetch warning:", e.message);
-  }
+      console.log(`\n📢 Your Channel ID (set this as WHATSAPP_CHANNEL_ID secret):`);
+      console.log(`   ${process.env.WHATSAPP_CHANNEL_ID || "120363XXXXXXXXXX@newsletter"}`);
 
-  process.exit(0);
-});
+      process.exit(0);
+    }
 
-client.on("auth_failure", (msg) => {
-  console.error("❌ Auth failed:", msg);
-  process.exit(1);
-});
+    if (connection === "close") {
+      const code = (lastDisconnect?.error)?.output?.statusCode;
+      if (code === DisconnectReason.loggedOut) {
+        console.error("❌ Logged out. Delete auth_info/ and re-run.");
+        process.exit(1);
+      } else {
+        console.log("🔄 Reconnecting...");
+        auth();
+      }
+    }
+  });
+}
 
-client.initialize();
+auth();

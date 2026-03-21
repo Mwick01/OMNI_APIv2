@@ -1,9 +1,13 @@
 {
-  "name": "ruh-notice-bot-wwebjs",
+  "name": "ruh-notice-bot-baileys",
   "version": "1.0.0",
+  "description": "RUH FOSMIS Notice Bot using Baileys (no Chromium)",
+  "main": "whatsapp_sender.js",
   "dependencies": {
-    "whatsapp-web.js": "^1.23.0",
-    "qrcode-terminal": "^0.12.0",
-    "better-sqlite3": "^9.4.3"
+    "@whiskeysockets/baileys": "^6.7.9",
+    "@hapi/boom": "^10.0.1",
+    "better-sqlite3": "^9.4.3",
+    "pino": "^8.21.0",
+    "qrcode-terminal": "^0.12.0"
   }
 }

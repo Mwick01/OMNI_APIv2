@@ -16,13 +16,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install system deps
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq \
-            chromium-browser libgbm-dev libasound2t64 libatk1.0-0 \
-            libcups2 libnspr4 libnss3 libxss1 libxtst6 libglib2.0-0
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -33,19 +26,14 @@ jobs:
 
       - name: Show QR — scan within 60 seconds
         run: node run_once_auth.js
-        timeout-minutes: 4
-
-      - name: Remove lock files before committing
-        run: |
-          rm -f .wwebjs_auth/session/SingletonLock
-          rm -f .wwebjs_auth/session/SingletonCookie
-          rm -f .wwebjs_auth/session/SingletonSocket
-          rm -f ".wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/LOCK"
+        timeout-minutes: 3
+        env:
+          WHATSAPP_CHANNEL_ID: ${{ secrets.WHATSAPP_CHANNEL_ID }}
 
       - name: Commit session to repo
         run: |
           git config user.email "bot@github.com"
           git config user.name "Notice Bot"
-          git add -f .wwebjs_auth/
-          git commit -m "Update WhatsApp session (Linux)" || echo "No changes"
+          git add -f auth_info/
+          git commit -m "Update Baileys session" || echo "No changes"
           git push
