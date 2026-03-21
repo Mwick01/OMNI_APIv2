@@ -1,0 +1,51 @@
+name: 1. WhatsApp Auth (run once)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            chromium-browser libgbm-dev libasound2t64 libatk1.0-0 \
+            libcups2 libnspr4 libnss3 libxss1 libxtst6 libglib2.0-0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Node deps
+        run: npm install
+
+      - name: Show QR — scan within 60 seconds
+        run: node run_once_auth.js
+        timeout-minutes: 2
+
+      - name: Remove lock files before committing
+        run: |
+          rm -f .wwebjs_auth/session/SingletonLock
+          rm -f .wwebjs_auth/session/SingletonCookie
+          rm -f .wwebjs_auth/session/SingletonSocket
+          rm -f ".wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/LOCK"
+
+      - name: Commit session to repo
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "Notice Bot"
+          git add -f .wwebjs_auth/
+          git commit -m "Update WhatsApp session (Linux)" || echo "No changes"
+          git push

@@ -1,0 +1,68 @@
+name: 2. Notice Scraper
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remove session lock files
+        run: |
+          rm -f .wwebjs_auth/session/SingletonLock
+          rm -f .wwebjs_auth/session/SingletonCookie
+          rm -f .wwebjs_auth/session/SingletonSocket
+          rm -f ".wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/LOCK"
+          echo "✅ Lock files removed"
+
+      - name: Restore SQLite database
+        uses: actions/cache@v4
+        with:
+          path: database.db
+          key: notices-db-${{ github.run_number }}
+          restore-keys: notices-db-
+
+      - name: Restore downloads
+        uses: actions/cache@v4
+        with:
+          path: downloads/
+          key: downloads-${{ github.run_number }}
+          restore-keys: downloads-
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            chromium-browser libgbm-dev libasound2t64 libatk1.0-0 \
+            libcups2 libnspr4 libnss3 libxss1 libxtst6 libglib2.0-0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Node deps
+        run: npm install
+
+      - name: Run bot
+        env:
+          SITE_USERNAME: ${{ secrets.SITE_USERNAME }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          WHATSAPP_CHANNEL_ID: ${{ secrets.WHATSAPP_CHANNEL_ID }}
+          LOGIN_URL: ${{ secrets.LOGIN_URL }}
+          NOTICE_URL: ${{ secrets.NOTICE_URL }}
+        run: python main.py
