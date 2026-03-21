@@ -49,13 +49,16 @@ async function auth() {
     }
 
     if (connection === "close") {
-      const code = (lastDisconnect?.error)?.output?.statusCode;
-      if (code === DisconnectReason.loggedOut) {
-        console.error("❌ Logged out. Delete auth_info/ and re-run.");
-        process.exit(1);
-      } else {
-        console.log("🔄 Reconnecting...");
+      const code = lastDisconnect?.error?.output?.statusCode;
+      const reason = lastDisconnect?.error?.message || "unknown";
+      console.log(`Connection closed — code: ${code}, reason: ${reason}`);
+
+      if (code === DisconnectReason.restartRequired) {
+        console.log("🔄 Restart required — retrying once...");
         auth();
+      } else {
+        console.error(`❌ Fatal disconnect — exiting.`);
+        process.exit(1);
       }
     }
   });
