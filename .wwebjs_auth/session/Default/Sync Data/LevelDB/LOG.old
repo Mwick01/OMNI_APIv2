@@ -1,2 +1,3 @@
-2026/03/21-16:56:53.146 1751 Creating DB /home/runner/work/OMNI_APIv2/OMNI_APIv2/.wwebjs_auth/session/Default/Sync Data/LevelDB since it was missing.
-2026/03/21-16:56:53.157 1751 Reusing MANIFEST /home/runner/work/OMNI_APIv2/OMNI_APIv2/.wwebjs_auth/session/Default/Sync Data/LevelDB/MANIFEST-000001
+2026/03/21-17:11:41.780 1748 Reusing MANIFEST /home/runner/work/OMNI_APIv2/OMNI_APIv2/.wwebjs_auth/session/Default/Sync Data/LevelDB/MANIFEST-000001
+2026/03/21-17:11:41.810 1748 Recovering log #3
+2026/03/21-17:11:41.810 1748 Reusing old log /home/runner/work/OMNI_APIv2/OMNI_APIv2/.wwebjs_auth/session/Default/Sync Data/LevelDB/000003.log 
