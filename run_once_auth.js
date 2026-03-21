@@ -27,10 +27,18 @@ client.on("qr", (qr) => {
   console.log("\n⏳ You have 60 seconds to scan...\n");
 });
 
-client.on("ready", () => {
-  console.log("\n✅ Authenticated! Session saved to .wwebjs_auth/");
+client.on("ready", async () => {
+  console.log("\n✅ Authenticated! Waiting for sync...");
+  
+  // Wait 30 seconds for WhatsApp to fully sync chat history
+  await new Promise((r) => setTimeout(r, 30000));
+  console.log("✅ Sync wait done");
 
-  client.getChats().then((chats) => {
+  // Trigger a fake fetch to warm up the session
+  try {
+    const chats = await client.getChats();
+    console.log(`✅ Fetched ${chats.length} chats — session is warm`);
+
     const channels = chats.filter(
       (c) => c.isChannel || c.id._serialized.includes("newsletter")
     );
@@ -38,18 +46,17 @@ client.on("ready", () => {
 
     console.log("\n📢 Your Channels:");
     if (channels.length === 0) console.log("  (none found)");
-    channels.forEach((c) =>
-      console.log(`  - ${c.name}: ${c.id._serialized}`)
-    );
+    channels.forEach((c) => console.log(`  - ${c.name}: ${c.id._serialized}`));
 
     console.log("\n👥 Your Groups:");
     if (groups.length === 0) console.log("  (none found)");
-    groups.forEach((g) =>
-      console.log(`  - ${g.name}: ${g.id._serialized}`)
-    );
+    groups.forEach((g) => console.log(`  - ${g.name}: ${g.id._serialized}`));
 
-    process.exit(0);
-  });
+  } catch (e) {
+    console.log("⚠️ Fetch warning:", e.message);
+  }
+
+  process.exit(0);
 });
 
 client.on("auth_failure", (msg) => {

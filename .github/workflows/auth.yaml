@@ -33,7 +33,7 @@ jobs:
 
       - name: Show QR — scan within 60 seconds
         run: node run_once_auth.js
-        timeout-minutes: 2
+        timeout-minutes: 4
 
       - name: Remove lock files before committing
         run: |
