@@ -1,0 +1,20 @@
+# RUH Notice Bot - Smart Schedule (Sri Lanka Time = UTC+5:30)
+# 
+# Peak hours: Weekdays 8AM-5PM SL = 2:30AM-11:30AM UTC
+# Off hours:  Weekdays 5PM-8AM SL = 11:30AM-2:30AM UTC
+# Weekends:   All day every 20 mins
+
+# ── Weekdays peak hours (every 5 min) ──────────────────────────────
+# Mon-Fri, 2:30AM-11:30AM UTC (8AM-5PM SL)
+*/5 3-11 * * 1-5 cd /home/ubuntu/notice-bot && python3 main.py >> /home/ubuntu/cron.log 2>&1
+
+# Handle the :30 boundary — 2:30AM UTC = 8:00AM SL start
+30 2 * * 1-5 cd /home/ubuntu/notice-bot && python3 main.py >> /home/ubuntu/cron.log 2>&1
+
+# ── Weekdays off hours (every 20 min) ──────────────────────────────
+# Mon-Fri, 11:30AM-2:30AM UTC (5PM-8AM SL next day)
+*/20 0-2 * * 1-5 cd /home/ubuntu/notice-bot && python3 main.py >> /home/ubuntu/cron.log 2>&1
+*/20 12-23 * * 1-5 cd /home/ubuntu/notice-bot && python3 main.py >> /home/ubuntu/cron.log 2>&1
+
+# ── Weekends (every 20 min, all day) ───────────────────────────────
+*/20 * * * 6,0 cd /home/ubuntu/notice-bot && python3 main.py >> /home/ubuntu/cron.log 2>&1
