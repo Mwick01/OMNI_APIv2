@@ -9,7 +9,7 @@ sudo apt-get install -y -qq python3-pip python3-venv git
 
 echo "📁 Setting up project..."
 cd /home/ubuntu
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git notice-bot
+git clone https://github.com/Mwick01/OMNI_APIv2.git notice-bot
 cd notice-bot
 
 echo "🐍 Setting up Python environment..."
