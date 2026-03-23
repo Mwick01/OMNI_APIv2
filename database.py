@@ -43,7 +43,7 @@ def insert_notice(title, url, file_path, file_type, date_on_site):
 def get_unsent_notices():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT * FROM notices WHERE sent_to_whatsapp = 0")
+    c.execute("SELECT * FROM notices WHERE sent_to_whatsapp = 0 ORDER BY date_on_site DESC")
     rows = c.fetchall()
     conn.close()
     return rows

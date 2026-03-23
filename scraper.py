@@ -159,6 +159,8 @@ def scrape_and_download():
 
             # HTML → TXT conversion with UTF-8 for Sinhala
             if "text/html" in file_resp.headers.get("Content-Type", ""):
+                # Force UTF-8 decoding to handle Sinhala and other Unicode
+                file_resp.encoding = "utf-8"
                 file_resp.encoding = "utf-8"
                 page_soup = BeautifulSoup(file_resp.text, "html.parser")
                 notice_div = page_soup.find("div", id="m") or page_soup
