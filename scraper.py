@@ -15,7 +15,7 @@ LOGIN_URL    = os.getenv("LOGIN_URL")
 NOTICE_URL   = os.getenv("NOTICE_URL")
 DOWNLOAD_DIR = "downloads"
 SESSION_FILE = "session.json"      # Persists session cookie between runs
-SESSION_MAX_AGE_MINS = 5           # Re-login after 5 minutes
+SESSION_MAX_AGE_MINS = 6           # Re-login after 6 minutes
 
 USERNAME = os.getenv("SITE_USERNAME")
 PASSWORD = os.getenv("SITE_PASSWORD")
