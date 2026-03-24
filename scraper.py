@@ -3,7 +3,7 @@ import re
 import json
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, parse_qs, quote
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
@@ -97,7 +97,6 @@ def get_session():
     """Get a valid session — reuse if fresh, otherwise login fresh."""
     session = load_session()
     if session:
-        # Verify the session still works
         try:
             resp = session.get(NOTICE_URL, timeout=10)
             if "Sign In" in resp.text or resp.url != NOTICE_URL:
@@ -124,7 +123,6 @@ def scrape_and_download():
         print("❌ No tables found on page")
         return
 
-    # Filter to last 30 days from all tables
     recent_rows = []
     for table in tables:
         for row in table.find_all("tr")[1:]:
@@ -150,37 +148,61 @@ def scrape_and_download():
 
         href      = dl_link.get("href", "")
         full_url  = urljoin(NOTICE_URL, href)
-        filename  = safe_filename(href)
+        
+        # --- THE DIRECT BYPASS HACK ---
+        parsed_url = urlparse(full_url)
+        query_params = parse_qs(parsed_url.query)
+        
+        if "fname" in query_params:
+            real_filename = query_params["fname"][0]
+            safe_fname = quote(real_filename)
+            # Route directly to the downloads folder
+            direct_dl_url = f"https://paravi.ruh.ac.lk/fosmis2019/downloads/Notices/{safe_fname}"
+            filename = safe_filename(real_filename)
+        else:
+            direct_dl_url = full_url
+            filename = safe_filename(href)
+        # ------------------------------
+
         file_type = get_file_type(filename)
         filepath  = os.path.join(DOWNLOAD_DIR, filename)
 
         try:
-            file_resp = session.get(full_url, timeout=20)
+            # Download from the direct link
+            file_resp = session.get(direct_dl_url, timeout=20)
+            content_type = file_resp.headers.get("Content-Type", "").lower()
 
-            # HTML → TXT conversion with UTF-8 for Sinhala
-            if "text/html" in file_resp.headers.get("Content-Type", ""):
-                # Force UTF-8 decoding to handle Sinhala and other Unicode
+            # If it's HTML, convert it to TXT and force UTF-8
+            if "text/html" in content_type or file_type in ["html", "htm"]:
+                
+                # Force UTF-8 decoding to fix the gibberish issue
                 file_resp.encoding = "utf-8"
-                file_resp.encoding = "utf-8"
+                
+                # Parse the raw file (no FOSMIS wrapper to worry about!)
                 page_soup = BeautifulSoup(file_resp.text, "html.parser")
-                notice_div = page_soup.find("div", id="m") or page_soup
-                for tag in notice_div(["script", "style"]):
+                
+                for tag in page_soup(["script", "style"]):
                     tag.decompose()
+                
+                # Extract text, removing blank lines
                 text = "\n".join(
-                    line.strip() for line in notice_div.get_text(separator="\n").split("\n")
+                    line.strip() for line in page_soup.get_text(separator="\n").split("\n") if line.strip()
                 )
+                
                 filename  = Path(filename).stem + ".txt"
                 filepath  = os.path.join(DOWNLOAD_DIR, filename)
                 file_type = "txt"
+                
                 with open(filepath, "w", encoding="utf-8") as f:
                     f.write(text)
             else:
+                # For PDFs or other files, save as raw binary
                 with open(filepath, "wb") as f:
                     f.write(file_resp.content)
 
             notice_id = insert_notice(
                 title=title,
-                url=full_url,
+                url=direct_dl_url,
                 file_path=filepath,
                 file_type=file_type,
                 date_on_site=date_text,
