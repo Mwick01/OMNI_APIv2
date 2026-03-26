@@ -139,9 +139,12 @@ def scrape_and_download():
 
     for row in recent_rows:
         tds = row.find_all("td")
-        date_text = tds[1].get_text(strip=True)
-        title     = tds[2].get_text(strip=True)
-        dl_link   = tds[3].find("a", href=True)
+        if len(tds) < 4:    
+            continue
+
+        date_text = tds[1].get_text(strip=True)  # just the date cell
+        title     = tds[2].get_text(strip=True)  # just the title cell
+        dl_link   = tds[3].find("a", href=True)  # just the download cell
 
         if not dl_link:
             continue

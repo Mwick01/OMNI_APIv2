@@ -3,7 +3,7 @@ whatsapp_sender.py
 Sends unsent notices to a WhatsApp group using Green API (free tier).
 No Node.js, no puppeteer, no session files needed.
 """
-
+import re
 import os
 import requests
 from pathlib import Path
@@ -45,20 +45,23 @@ def send_file(file_path, caption=""):
 
 
 def build_caption(notice):
-    """Build a clean WhatsApp caption from a notice row."""
     id_, title, url, file_path, file_type, date_on_site, downloaded_at, _ = notice
-
-    # Remove trailing "Download" from titles scraped from the site
+    
+    # Clean title — remove trailing "Download"
     clean_title = title.replace("Download", "").strip()
+    
+    # Clean date — extract just the date/time part (e.g. "2026-03-23/16:07")
+    # Sometimes date_on_site gets extra text concatenated
+    date_match = re.search(r"\d{4}-\d{2}-\d{2}[/ ]\d{2}:\d{2}", date_on_site or "")
+    clean_date = date_match.group(0) if date_match else date_on_site
 
-    lines = [
+    return "\n".join([
         "📢 *New Notice*",
         "",
         f"📌 *{clean_title}*",
-        f"🕐 {date_on_site}",
+        f"🕐 {clean_date}",
         f"🔗 {url}",
-    ]
-    return "\n".join(lines)
+    ])
 
 
 def send_notices():
