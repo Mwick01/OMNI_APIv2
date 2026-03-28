@@ -1,8 +1,3 @@
-"""
-whatsapp_sender.py
-Sends unsent notices to a WhatsApp group using Green API (free tier).
-No Node.js, no puppeteer, no session files needed.
-"""
 import re
 import os
 import requests
@@ -11,11 +6,10 @@ from database import get_unsent_notices, mark_as_sent
 
 INSTANCE_ID = os.getenv("GREEN_API_INSTANCE")
 API_TOKEN   = os.getenv("GREEN_API_TOKEN")
-GROUP_ID    = os.getenv("WHATSAPP_GROUP_ID")   # e.g. 120363XXXXXXXXXX@g.us
+GROUP_ID    = os.getenv("WHATSAPP_GROUP_ID")
 BASE_URL    = f"https://api.green-api.com/waInstance{INSTANCE_ID}"
 
 SUPPORTED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".docx", ".doc"}
-
 
 def send_message(text):
     """Send a plain text message."""
@@ -27,7 +21,6 @@ def send_message(text):
     resp = requests.post(url, json=payload, timeout=30)
     resp.raise_for_status()
     return resp.json()
-
 
 def send_file(file_path, caption=""):
     """Send a file (PDF, image, docx) with caption."""
@@ -43,26 +36,63 @@ def send_file(file_path, caption=""):
     resp.raise_for_status()
     return resp.json()
 
-
-def build_caption(notice):
-    id_, title, url, file_path, file_type, date_on_site, downloaded_at, _ = notice
+def build_caption(notice, text_content=None):
+    # Unpack all 11 columns from the database
+    id_, title, url, file_path, file_type, date_on_site, downloaded_at, sent, course_name, deadline, summary = notice
     
-    # Clean title — remove trailing "Download"
     clean_title = title.replace("Download", "").strip()
     
-    # Clean date — extract just the date/time part (e.g. "2026-03-23/16:07")
-    # Sometimes date_on_site gets extra text concatenated
     date_match = re.search(r"\d{4}-\d{2}-\d{2}[/ ]\d{2}:\d{2}", date_on_site or "")
     clean_date = date_match.group(0) if date_match else date_on_site
 
-    return "\n".join([
+    # 1. Main Header, Title, Date, and URL
+    caption_lines = [
         "📢 *New Notice*",
         "",
         f"📌 *{clean_title}*",
+        "",
         f"🕐 {clean_date}",
-        f"🔗 {url}",
-    ])
+        f"🔗 {url}"
+    ]
 
+    # 2. Add the Raw Notice Text (If it's a Sinhala .txt file)
+    if text_content:
+        caption_lines.extend([
+            "",
+            "───────────────",
+            "📄 *Notice Content:*",
+            text_content.strip()
+        ])
+
+    # 3. Check if ChatGPT gave us any valid data
+    has_course = course_name and str(course_name).lower() != "null"
+    has_deadline = deadline and str(deadline).lower() != "null"
+    has_summary = summary and str(summary).lower() != "null"
+
+    # 4. Build the AI Overview section underneath
+    if has_course or has_deadline or has_summary:
+        caption_lines.extend([
+            "",
+            "───────────────",
+            "🤖 *AI Overview* :-"
+        ])
+        
+        if has_course:
+            caption_lines.append(f"🎓 *Course:* {course_name}")
+            
+        if has_deadline:
+            caption_lines.append(f"⏰ *Deadline:* {deadline}")
+            
+        if has_summary:
+            caption_lines.append(f"📝 *Summary:* _{summary}_") 
+            
+        # Add the safety warning
+        caption_lines.extend([
+            "",
+            "⚠️ _Note: AI can make mistakes. Please verify with the original notice._"
+        ])
+
+    return "\n".join(caption_lines)
 
 def send_notices():
     unsent = get_unsent_notices()
@@ -76,29 +106,35 @@ def send_notices():
     for notice in unsent:
         id_ = notice[0]
         file_path = notice[3]
-        caption = build_caption(notice)
+        
+        # Determine file info first
+        ext = Path(file_path).suffix.lower() if file_path else ""
+        file_exists = file_path and os.path.exists(file_path)
+        
+        # If it is a text file, read it BEFORE building the caption
+        text_content = None
+        if file_exists and ext == ".txt":
+            try:
+                # Grab the first 3000 characters so we don't hit WhatsApp limits
+                text_content = open(file_path, encoding="utf-8").read()[:3000]
+            except Exception as e:
+                print(f"  ⚠️ Could not read text file: {e}")
+
+        # Build the caption and pass the text into it!
+        caption = build_caption(notice, text_content=text_content)
 
         try:
-            ext = Path(file_path).suffix.lower() if file_path else ""
-            file_exists = file_path and os.path.exists(file_path)
-
-            if file_exists and ext == ".txt":
-                # Send text content inline
-                content = open(file_path, encoding="utf-8").read()[:3000]
-                send_message(f"{caption}\n\n─────────────\n{content}")
-
-            elif file_exists and ext in SUPPORTED_EXTENSIONS:
-                # Send file with caption
+            # If it's a PDF/Image/Word doc, send as a file
+            if file_exists and ext in SUPPORTED_EXTENSIONS:
                 send_file(file_path, caption=caption)
-
+            
+            # If it's a .txt file OR there is no file, just send the text message
             else:
-                # No file or unsupported type — send caption + link only
                 send_message(caption)
 
             mark_as_sent(id_)
             print(f"  ✅ Sent: {notice[1][:60]}")
 
-            # Small delay between messages
             import time
             time.sleep(2)
 
@@ -106,7 +142,6 @@ def send_notices():
             print(f"  ❌ Failed '{notice[1][:40]}': {e}")
 
     print("✅ All notices sent.")
-
 
 if __name__ == "__main__":
     send_notices()
