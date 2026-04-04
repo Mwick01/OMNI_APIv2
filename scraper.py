@@ -7,15 +7,18 @@ from urllib.parse import urljoin, urlparse, parse_qs, quote
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
+
+# Import from your other local files
 from database import init_db, insert_notice
+from ai_processor import analyze_notice
 
 load_dotenv()
 
 LOGIN_URL    = os.getenv("LOGIN_URL")
 NOTICE_URL   = os.getenv("NOTICE_URL")
 DOWNLOAD_DIR = "downloads"
-SESSION_FILE = "session.json"      # Persists session cookie between runs
-SESSION_MAX_AGE_MINS = 6           # Re-login after 6 minutes
+SESSION_FILE = "session.json"
+SESSION_MAX_AGE_MINS = 6
 
 USERNAME = os.getenv("SITE_USERNAME")
 PASSWORD = os.getenv("SITE_PASSWORD")
@@ -43,18 +46,15 @@ def is_within_one_month(date_text):
 
 
 def save_session(session):
-    """Save session cookies and timestamp to file."""
     data = {
         "cookies": dict(session.cookies),
         "saved_at": datetime.now().isoformat(),
     }
     with open(SESSION_FILE, "w") as f:
         json.dump(data, f)
-    print("💾 Session saved.")
 
 
 def load_session():
-    """Load session from file if it's still fresh (< SESSION_MAX_AGE_MINS)."""
     if not os.path.exists(SESSION_FILE):
         return None
     try:
@@ -63,44 +63,34 @@ def load_session():
         saved_at = datetime.fromisoformat(data["saved_at"])
         age_mins = (datetime.now() - saved_at).total_seconds() / 60
         if age_mins > SESSION_MAX_AGE_MINS:
-            print(f"⏰ Session expired ({age_mins:.1f} min old) — re-logging in.")
             return None
-        print(f"✅ Reusing session ({age_mins:.1f} min old).")
         session = requests.Session()
         session.cookies.update(data["cookies"])
         return session
-    except Exception as e:
-        print(f"⚠️ Could not load session: {e}")
+    except Exception:
         return None
 
 
 def login():
-    """Login and return a new session."""
     session = requests.Session()
     payload = {"uname": USERNAME, "upwd": PASSWORD}
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
         response = session.post(LOGIN_URL, data=payload, headers=headers, timeout=15)
         if "Sign In" not in response.text:
-            print("✅ Login successful!")
             save_session(session)
             return session
-        else:
-            print("❌ Login failed. Check credentials.")
-            return None
-    except Exception as e:
-        print(f"❌ Login error: {e}")
+        return None
+    except Exception:
         return None
 
 
 def get_session():
-    """Get a valid session — reuse if fresh, otherwise login fresh."""
     session = load_session()
     if session:
         try:
             resp = session.get(NOTICE_URL, timeout=10)
             if "Sign In" in resp.text or resp.url != NOTICE_URL:
-                print("⚠️ Saved session rejected — re-logging in.")
                 return login()
             return session
         except Exception:
@@ -112,6 +102,7 @@ def scrape_and_download():
     init_db()
     session = get_session()
     if not session:
+        print("❌ Could not log in to FOSMIS.")
         return
 
     print("🔍 Checking notices...")
@@ -139,12 +130,9 @@ def scrape_and_download():
 
     for row in recent_rows:
         tds = row.find_all("td")
-        if len(tds) < 4:    
-            continue
-
-        date_text = tds[1].get_text(strip=True)  # just the date cell
-        title     = tds[2].get_text(strip=True)  # just the title cell
-        dl_link   = tds[3].find("a", href=True)  # just the download cell
+        date_text = tds[1].get_text(strip=True)
+        title     = tds[2].get_text(strip=True)
+        dl_link   = tds[3].find("a", href=True)
 
         if not dl_link:
             continue
@@ -159,7 +147,6 @@ def scrape_and_download():
         if "fname" in query_params:
             real_filename = query_params["fname"][0]
             safe_fname = quote(real_filename)
-            # Route directly to the downloads folder
             direct_dl_url = f"https://paravi.ruh.ac.lk/fosmis2019/downloads/Notices/{safe_fname}"
             filename = safe_filename(real_filename)
         else:
@@ -170,25 +157,26 @@ def scrape_and_download():
         file_type = get_file_type(filename)
         filepath  = os.path.join(DOWNLOAD_DIR, filename)
 
+        # Quick check: if the file exists locally, we likely already processed it.
+        # This saves the server from downloading and running AI on old files every 15 minutes.
+        if os.path.exists(filepath) or os.path.exists(Path(filepath).with_suffix('.txt')):
+            continue
+
         try:
-            # Download from the direct link
+            print(f"\n⬇️ Downloading: {title[:40]}...")
             file_resp = session.get(direct_dl_url, timeout=20)
             content_type = file_resp.headers.get("Content-Type", "").lower()
+            file_text = ""
 
-            # If it's HTML, convert it to TXT and force UTF-8
+            # --- PROCESS HTML FILES ---
             if "text/html" in content_type or file_type in ["html", "htm"]:
-                
-                # Force UTF-8 decoding to fix the gibberish issue
                 file_resp.encoding = "utf-8"
-                
-                # Parse the raw file (no FOSMIS wrapper to worry about!)
                 page_soup = BeautifulSoup(file_resp.text, "html.parser")
                 
                 for tag in page_soup(["script", "style"]):
                     tag.decompose()
                 
-                # Extract text, removing blank lines
-                text = "\n".join(
+                file_text = "\n".join(
                     line.strip() for line in page_soup.get_text(separator="\n").split("\n") if line.strip()
                 )
                 
@@ -197,31 +185,57 @@ def scrape_and_download():
                 file_type = "txt"
                 
                 with open(filepath, "w", encoding="utf-8") as f:
-                    f.write(text)
+                    f.write(file_text)
+
+            # --- PROCESS PDF & OTHER FILES ---
             else:
-                # For PDFs or other files, save as raw binary
                 with open(filepath, "wb") as f:
                     f.write(file_resp.content)
+                
+            
+            # --- AI ANALYSIS ---
+            subject_code, subject_name, degree_programme, semester_exam, deadln, summ = None, None, None, None, None, None
 
+            print("  🤖 Running ChatGPT Analysis...")
+            ai_data = analyze_notice(title, filepath, file_type)
+
+            if ai_data:
+                if ai_data.get("is_exam_center"):
+                    print("    ⏭ Exam center detected. Skipping deep summary.")
+                else:
+                    subject_code     = ai_data.get("subject_code")
+                    subject_name     = ai_data.get("subject_name")
+                    degree_programme = ai_data.get("degree_programme")
+                    semester_exam    = ai_data.get("semester_exam")
+                    deadln           = ai_data.get("deadline")
+                    summ             = ai_data.get("summary")
+                    print(f"    ✅ Subject: {subject_name} ({subject_code}) | Deadline: {deadln}")
+
+            # --- SAVE TO DATABASE ---
             notice_id = insert_notice(
                 title=title,
                 url=direct_dl_url,
                 file_path=filepath,
                 file_type=file_type,
                 date_on_site=date_text,
+                subject_code=subject_code,
+                subject_name=subject_name,
+                degree_programme=degree_programme,
+                semester_exam=semester_exam,
+                deadline=deadln,
+                summary=summ
             )
 
-            if notice_id is None:
-                print(f"  ⏭ Already exists: {title}")
-                continue
-
-            print(f"  ✅ New: {title}")
-            new_count += 1
+            if notice_id:
+                print(f"  💾 Saved new notice to database.")
+                new_count += 1
+            else:
+                print(f"  ⏭ Already in database.")
 
         except Exception as e:
-            print(f"  ❌ Error with {filename}: {e}")
+            print(f"  ❌ Error processing {filename}: {e}")
 
-    print(f"\n✅ Done. {new_count} new notice(s) found.")
+    print(f"\n✅ Scraping complete. {new_count} new notice(s) prepared for WhatsApp.")
 
 
 if __name__ == "__main__":
