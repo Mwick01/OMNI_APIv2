@@ -16,37 +16,43 @@ def init_db():
             date_on_site    TEXT,
             downloaded_at   TEXT,
             sent_to_whatsapp INTEGER DEFAULT 0,
-            course_name     TEXT,
+            subject_code    TEXT,
+            subject_name    TEXT,
+            degree_programme TEXT,
+            semester_exam   TEXT,
             deadline        TEXT,
             summary         TEXT
         )
     """)
     
-    # Safely upgrade existing database with new columns
     try:
-        c.execute("ALTER TABLE notices ADD COLUMN course_name TEXT")
+        c.execute("ALTER TABLE notices ADD COLUMN subject_code TEXT")
+        c.execute("ALTER TABLE notices ADD COLUMN subject_name TEXT")
+        c.execute("ALTER TABLE notices ADD COLUMN degree_programme TEXT")
+        c.execute("ALTER TABLE notices ADD COLUMN semester_exam TEXT")
         c.execute("ALTER TABLE notices ADD COLUMN deadline TEXT")
         c.execute("ALTER TABLE notices ADD COLUMN summary TEXT")
     except sqlite3.OperationalError:
-        pass # Columns already exist, skip adding them
-
+        pass
     conn.commit()
     conn.close()
 
-
-def insert_notice(title, url, file_path, file_type, date_on_site, course_name=None, deadline=None, summary=None):
-    """Insert notice with AI data. Returns new ID if new, None if duplicate."""
+def insert_notice(title, url, file_path, file_type, date_on_site,
+                  subject_code=None, subject_name=None, degree_programme=None,
+                  semester_exam=None, deadline=None, summary=None):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     try:
         c.execute("""
-            INSERT INTO notices (title, url, file_path, file_type, date_on_site, downloaded_at, course_name, deadline, summary)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (title, url, file_path, file_type, date_on_site, datetime.now().isoformat(), course_name, deadline, summary))
+            INSERT INTO notices (title, url, file_path, file_type, date_on_site, downloaded_at,
+                                 subject_code, subject_name, degree_programme, semester_exam, deadline, summary)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (title, url, file_path, file_type, date_on_site, datetime.now().isoformat(),
+              subject_code, subject_name, degree_programme, semester_exam, deadline, summary))
         conn.commit()
         return c.lastrowid
     except sqlite3.IntegrityError:
-        return None  # Already exists
+        return None
     finally:
         conn.close()
 

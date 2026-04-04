@@ -37,15 +37,15 @@ def send_file(file_path, caption=""):
     return resp.json()
 
 def build_caption(notice, text_content=None):
-    # Unpack all 11 columns from the database
-    id_, title, url, file_path, file_type, date_on_site, downloaded_at, sent, course_name, deadline, summary = notice
-    
+    # Unpack all 14 columns
+    id_, title, url, file_path, file_type, date_on_site, downloaded_at, sent, \
+    subject_code, subject_name, degree_programme, semester_exam, deadline, summary = notice
+
     clean_title = title.replace("Download", "").strip()
     
     date_match = re.search(r"\d{4}-\d{2}-\d{2}[/ ]\d{2}:\d{2}", date_on_site or "")
     clean_date = date_match.group(0) if date_match else date_on_site
 
-    # 1. Main Header, Title, Date, and URL
     caption_lines = [
         "📢 *New Notice*",
         "",
@@ -55,7 +55,6 @@ def build_caption(notice, text_content=None):
         f"🔗 {url}"
     ]
 
-    # 2. Add the Raw Notice Text (If it's a Sinhala .txt file)
     if text_content:
         caption_lines.extend([
             "",
@@ -64,29 +63,35 @@ def build_caption(notice, text_content=None):
             text_content.strip()
         ])
 
-    # 3. Check if ChatGPT gave us any valid data
-    has_course = course_name and str(course_name).lower() != "null"
-    has_deadline = deadline and str(deadline).lower() != "null"
-    has_summary = summary and str(summary).lower() != "null"
+    has_subject_code    = subject_code      and str(subject_code).lower()      != "null"
+    has_subject_name    = subject_name      and str(subject_name).lower()       != "null"
+    has_degree          = degree_programme  and str(degree_programme).lower()   != "null"
+    has_semester        = semester_exam     and str(semester_exam).lower()      != "null"
+    has_deadline        = deadline          and str(deadline).lower()           != "null"
+    has_summary         = summary           and str(summary).lower()            != "null"
 
-    # 4. Build the AI Overview section underneath
-    if has_course or has_deadline or has_summary:
+    if any([has_subject_code, has_subject_name, has_degree, has_semester, has_deadline, has_summary]):
         caption_lines.extend([
             "",
             "───────────────",
             "🤖 *AI Overview* :-"
         ])
-        
-        if has_course:
-            caption_lines.append(f"🎓 *Course:* {course_name}")
-            
+
+        if has_degree:
+            caption_lines.append(f"🎓 *Programme:* {degree_programme}")
+        if has_subject_code and has_subject_name:
+            caption_lines.append(f"📘 *Subject:* {subject_name} ({subject_code})")
+        elif has_subject_name:
+            caption_lines.append(f"📘 *Subject:* {subject_name}")
+        elif has_subject_code:
+            caption_lines.append(f"📘 *Subject Code:* {subject_code}")
+        if has_semester:
+            caption_lines.append(f"🗓️ *Exam:* {semester_exam}")
         if has_deadline:
             caption_lines.append(f"⏰ *Deadline:* {deadline}")
-            
         if has_summary:
-            caption_lines.append(f"📝 *Summary:* _{summary}_") 
-            
-        # Add the safety warning
+            caption_lines.append(f"📝 *Summary:* _{summary}_")
+
         caption_lines.extend([
             "",
             "⚠️ _Note: AI can make mistakes. Please verify with the original notice._"

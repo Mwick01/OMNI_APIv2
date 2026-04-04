@@ -25,21 +25,33 @@ def analyze_notice(title, filepath, file_type):
 
     # 2. Build the strict prompt
     prompt_text = f"""
-    You are an assistant for a university in Sri Lanka. Analyze this notice.
-    Notice Title: {title}
+        You are an assistant for a university in Sri Lanka. Analyze this notice carefully.
+        Notice Title: {title}
 
-    Instructions:
-    1. If this is a marks/results sheet, extract the specific course name or code (e.g., "PHY III", "CS I", "FMIS III", "BS I", "LEVEL I PHY", "CHE2231").
-    2. Extract any explicit deadline or important date mentioned. If none exists, return null.
-    3. Write a very brief, 1-2 sentence summary of the notice. Do not include greetings.
+        Instructions:
+        1. This is a university exam results sheet. Extract the following fields:
+        - "subject_code": The specific subject/module code shown (e.g., "MSF2223", "CSC1234", "PHY1234"). 
+            This is usually a short alphanumeric code like "MSF2223". Look carefully in the header area.
+        - "subject_name": The specific subject/module name (e.g., "Numerical Analysis II", "Data Structures").
+            This is different from the degree programme name.
+        - "degree_programme": The broader degree programme (e.g., "Financial Mathematics and Industrial Statistics").
+        - "semester_exam": The semester/exam session if mentioned (e.g., "Level II Semester II 2023/2024").
+        - "deadline": Any explicit deadline or important date. If none, return null.
+        - "summary": A 1-2 sentence summary. Do not include greetings.
 
-    Return the data STRICTLY in the following JSON format without markdown blocks or extra text:
-    {{
-        "course_name": "Course name here or null",
-        "deadline": "Deadline here or null",
-        "summary": "Short summary here"
-    }}
-    """
+        2. Do NOT confuse the degree programme name with the subject name.
+        Example: Degree = "Financial Mathematics and Industrial Statistics", Subject = "Numerical Analysis II (MSF2223)"
+
+        Return STRICTLY in this JSON format without markdown or extra text:
+        {{
+            "subject_code": "MSF2223",
+            "subject_name": "Numerical Analysis II",
+            "degree_programme": "Financial Mathematics and Industrial Statistics",
+            "semester_exam": "Level II Semester II Examination 2023/2024",
+            "deadline": null,
+            "summary": "Short summary here"
+        }}
+        """
 
     messages = [{"role": "user", "content": []}]
 

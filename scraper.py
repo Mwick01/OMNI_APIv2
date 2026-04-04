@@ -194,20 +194,22 @@ def scrape_and_download():
                 
             
             # --- AI ANALYSIS ---
-            c_name, deadln, summ = None, None, None
-            
+            subject_code, subject_name, degree_programme, semester_exam, deadln, summ = None, None, None, None, None, None
+
             print("  🤖 Running ChatGPT Analysis...")
-            # We just pass the filepath directly to our new function now!
             ai_data = analyze_notice(title, filepath, file_type)
-            
+
             if ai_data:
                 if ai_data.get("is_exam_center"):
                     print("    ⏭ Exam center detected. Skipping deep summary.")
                 else:
-                    c_name = ai_data.get("course_name")
-                    deadln = ai_data.get("deadline")
-                    summ = ai_data.get("summary")
-                    print(f"    ✅ Course: {c_name} | Deadline: {deadln}")
+                    subject_code     = ai_data.get("subject_code")
+                    subject_name     = ai_data.get("subject_name")
+                    degree_programme = ai_data.get("degree_programme")
+                    semester_exam    = ai_data.get("semester_exam")
+                    deadln           = ai_data.get("deadline")
+                    summ             = ai_data.get("summary")
+                    print(f"    ✅ Subject: {subject_name} ({subject_code}) | Deadline: {deadln}")
 
             # --- SAVE TO DATABASE ---
             notice_id = insert_notice(
@@ -216,7 +218,10 @@ def scrape_and_download():
                 file_path=filepath,
                 file_type=file_type,
                 date_on_site=date_text,
-                course_name=c_name,
+                subject_code=subject_code,
+                subject_name=subject_name,
+                degree_programme=degree_programme,
+                semester_exam=semester_exam,
                 deadline=deadln,
                 summary=summ
             )
