@@ -38,8 +38,11 @@ def get_file_type(filename):
 
 def is_within_one_month(date_text):
     try:
-        date_str = date_text.replace("/", " ").split(" ")[0].strip()
-        notice_date = datetime.strptime(date_str, "%Y-%m-%d")
+        # Use regex to find the strict YYYY-MM-DD pattern, ignoring any garbage "1"s
+        match = re.search(r"\d{4}-\d{2}-\d{2}", date_text)
+        if not match: 
+            return True
+        notice_date = datetime.strptime(match.group(0), "%Y-%m-%d")
         return (datetime.now() - notice_date).days <= 30
     except Exception:
         return True
@@ -130,9 +133,20 @@ def scrape_and_download():
 
     for row in recent_rows:
         tds = row.find_all("td")
-        date_text = tds[1].get_text(strip=True)
-        title     = tds[2].get_text(strip=True)
-        dl_link   = tds[3].find("a", href=True)
+        
+        # Grab the messy raw text
+        raw_date = tds[1].get_text(strip=True)
+        raw_title = tds[2].get_text(strip=True)
+        
+        # Clean the date so the database only saves '2026-03-23/16:07'
+        date_match = re.search(r"\d{4}-\d{2}-\d{2}[/ ]\d{2}:\d{2}", raw_date)
+        date_text = date_match.group(0) if date_match else raw_date
+        
+        # Clean the title: remove "Download" AND any date/time patterns
+        title = raw_title.replace("Download", "").strip()
+        title = re.sub(r"\d{4}-\d{2}-\d{2}[/ ]\d{2}:\d{2}", "", title).strip()
+        
+        dl_link = tds[3].find("a", href=True)
 
         if not dl_link:
             continue
@@ -196,8 +210,20 @@ def scrape_and_download():
             # --- AI ANALYSIS ---
             subject_code, subject_name, degree_programme, semester_exam, deadln, summ = None, None, None, None, None, None
 
-            print("  🤖 Running ChatGPT Analysis...")
-            ai_data = analyze_notice(title, filepath, file_type)
+            #print("  🤖 Running ChatGPT Analysis...")
+            #ai_data = analyze_notice(title, filepath, file_type)
+
+            
+            # --- 🛠️ TEMPORARY FAKE AI FOR TESTING (FREE) 🛠️ ---
+            print("  🤖 Skipping actual AI to save money (using fake data)...")
+            ai_data = {
+                "is_exam_center": False,
+                "course_name": "TEST 101 - Intro to Saving Money",
+                "deadline": "December 31st, 2026",
+                "summary": "This is a fake AI summary just to test that the WhatsApp layout is looking beautiful without wasting API credits."
+            }
+            # ----------------------------------------------------
+
 
             if ai_data:
                 if ai_data.get("is_exam_center"):
