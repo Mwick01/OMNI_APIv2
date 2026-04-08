@@ -94,7 +94,7 @@ def build_caption(notice, text_content=None):
 
         caption_lines.extend([
             "",
-            "⚠️ _Note: AI can make mistakes. Please verify with the original notice._"
+            "_`⚠️ Note: AI can make mistakes. Please verify with the original notice.`_"
         ])
 
     return "\n".join(caption_lines)
