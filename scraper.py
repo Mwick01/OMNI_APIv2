@@ -228,17 +228,9 @@ def scrape_portal(session, portal):
             subject_code = subject_name = degree_programme = None
             semester_exam = deadline = summary = None
 
-            #print("  🤖 Running AI analysis...")
-            #ai_data = analyze_notice(title, filepath, file_type)
-            # --- 🛠️ TEMPORARY FAKE AI FOR TESTING (FREE) 🛠️ ---
-            print("  🤖 Skipping actual AI to save money (using fake data)...")
-            ai_data = {
-                "is_exam_center": False,
-                "course_name": "TEST 101 - Intro to Saving Money",
-                "deadline": "December 31st, 2026",
-                "summary": "This is a fake AI summary just to test that the WhatsApp layout is looking beautiful without wasting API credits."
-            }
-            # ----------------------------------------------------
+            print("  🤖 Running AI analysis...")
+            ai_data = analyze_notice(title, filepath, file_type)
+            
 
             if ai_data and not ai_data.get("is_exam_center"):
                 subject_code     = ai_data.get("subject_code")
