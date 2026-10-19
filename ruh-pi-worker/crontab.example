@@ -1,0 +1,3 @@
+# Replace YOUR_USER with the output of: whoami
+# Internal file locking also prevents overlapping runs.
+*/5 * * * * /home/YOUR_USER/ruh-pi-worker/venv/bin/python /home/YOUR_USER/ruh-pi-worker/run_cycle.py >> /home/YOUR_USER/ruh-pi-worker/logs/cron.log 2>&1
