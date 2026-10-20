@@ -1,0 +1,4 @@
+# Replace /home/YOUR_USER with your actual home path.
+@reboot sleep 20 && /home/YOUR_USER/ruh-vm-service/start_api.sh >> /home/YOUR_USER/ruh-vm-service/logs/startup.log 2>&1
+*/2 * * * * /home/YOUR_USER/ruh-vm-service/ensure_api.sh >> /home/YOUR_USER/ruh-vm-service/logs/watchdog.log 2>&1
+* * * * * flock -n /home/YOUR_USER/ruh-vm-service/data/run/cron-worker.lock /home/YOUR_USER/ruh-vm-service/venv/bin/python /home/YOUR_USER/ruh-vm-service/worker_cycle.py >> /home/YOUR_USER/ruh-vm-service/logs/cron-worker.log 2>&1
