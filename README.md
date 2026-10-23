@@ -14,6 +14,9 @@ A resilient Raspberry Pi + cloud pipeline that detects university notices, trans
 
 </div>
 
+<img width="370" height="800" alt="WhatsApp Image 2026-10-23 at 9 50 44 AM" src="https://github.com/user-attachments/assets/4589e4f2-ec77-41cf-a9ca-50d54413efd3" />
+<img width="370" height="800" alt="WhatsApp Image 2026-10-23 at 9 50 45 AM" src="https://github.com/user-attachments/assets/98b612f3-328b-48cb-b332-83ec875b6762" />
+
 ---
 
 ## Overview
